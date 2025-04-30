@@ -28,7 +28,7 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
 client = gspread.authorize(creds)
 sheet = client.open("大便紀錄").sheet1
 
-# 推播名單表格
+# 推播名單工作表
 try:
     sheet_ids = client.open("大便紀錄").worksheet("推播名單")
 except:
@@ -44,7 +44,11 @@ def get_source_id(event):
 
 @app.route("/", methods=['GET'])
 def home():
-    return "💩 大便紀錄Bot運作中！"
+    return "💩 大便紀錄 Bot 運作中！"
+
+@app.route("/keepalive", methods=["GET"])
+def keepalive():
+    return "✅ I'm alive!"
 
 @app.route("/callback", methods=['POST'])
 def callback():
