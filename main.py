@@ -102,7 +102,6 @@ def handle_message(event):
     except:
         user_name = "未知使用者"
 
-    # 加入推播名單
     ids = sheet_ids.col_values(1)
     if source_id not in ids:
         sheet_ids.append_row([source_id, source_type])
@@ -197,7 +196,7 @@ def handle_message(event):
             "📅 週排行 → 本週群組排行\n"
             "🗓️ 月排行 → 本月群組排行\n\n"
             "【通用彩蛋】\n"
-            "🤡 兜不住屎 → 有驚喜🎁"
+            "🤡 兜不住屎 → {你} 愛吃大便"
         )
     else:
         reply = "⚠️ 指令無法辨識，請精準輸入或輸入「幫助」查看所有功能"
@@ -206,6 +205,3 @@ def handle_message(event):
         event.reply_token,
         TextSendMessage(text=reply)
     )
-
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=3000)
