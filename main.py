@@ -100,7 +100,8 @@ def handle_message(event):
         user_name = profile.display_name
     except:
         user_name = "未知使用者"
-            ids = sheet_ids.col_values(1)
+        
+    ids = sheet_ids.col_values(1)
     if source_id not in ids:
         sheet_ids.append_row([source_id, source_type])
 
