@@ -4,11 +4,12 @@ load_dotenv()
 
 import os
 import json
+import random
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, ImageSendMessage
 from datetime import datetime, timedelta
 from collections import Counter
 import pytz
@@ -28,7 +29,6 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
 client = gspread.authorize(creds)
 sheet = client.open("大便紀錄").sheet1
 
-# 推播名單工作表
 try:
     sheet_ids = client.open("大便紀錄").worksheet("推播名單")
 except:
@@ -49,7 +49,6 @@ def home():
 @app.route("/keepalive", methods=["GET"])
 def keepalive():
     return "✅ I'm alive!"
-
 @app.route("/callback", methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
@@ -101,8 +100,7 @@ def handle_message(event):
         user_name = profile.display_name
     except:
         user_name = "未知使用者"
-
-    ids = sheet_ids.col_values(1)
+            ids = sheet_ids.col_values(1)
     if source_id not in ids:
         sheet_ids.append_row([source_id, source_type])
 
@@ -110,7 +108,7 @@ def handle_message(event):
 
     private_cmds = ["查詢", "查詢本週", "查詢本月"]
     group_cmds = ["大便", "💩", "排行榜", "週排行", "周排行", "月排行", "兜不住屎", "幫助", "help", "使用說明"]
-    all_cmds = private_cmds + group_cmds + ["屎王"]
+    all_cmds = private_cmds + group_cmds + ["屎王", "便便抽卡"]
 
     if source_type in ["group", "room"] and msg not in all_cmds:
         return
@@ -122,62 +120,31 @@ def handle_message(event):
         except Exception as e:
             reply = f"⚠️ 寫入失敗：{str(e)}"
 
-    elif msg in private_cmds and source_type == "user":
-        try:
-            records = sheet.get_all_records()
-            if msg == "查詢":
-                count = sum(1 for r in records if r['使用者名稱'] == user_name and r['時間'].startswith(today))
-                reply = f"📊 今天你已經大了 {count} 次便啦！"
-            elif msg == "查詢本週":
-                start_of_week = now_dt - timedelta(days=now_dt.weekday())
-                count = sum(1 for r in records if r['使用者名稱'] == user_name and tz.localize(datetime.strptime(r['時間'], "%Y-%m-%d %H:%M:%S")) >= start_of_week)
-                reply = f"📅 本週你總共大了 {count} 次便！"
-            elif msg == "查詢本月":
-                count = sum(1 for r in records if r['使用者名稱'] == user_name and datetime.strptime(r['時間'], "%Y-%m-%d %H:%M:%S").month == now_dt.month)
-                reply = f"🗓️ 本月你總共大了 {count} 次便！"
-        except Exception as e:
-            reply = f"⚠️ 查詢失敗：{str(e)}"
-
-    elif msg == "排行榜":
-        try:
-            records = sheet.get_all_records()
-            counter = Counter()
-            for r in records:
-                if r['時間'].startswith(today) and r['來源'] == source_type and r['來源ID'] == source_id:
-                    counter[r['使用者名稱']] += 1
-            top = counter.most_common(3)
-            reply = "💩 今日群組大便排行榜：\n" + "\n".join(f"{i+1}. {name} - {cnt} 次" for i, (name, cnt) in enumerate(top)) if top else "📉 今天還沒有人在群組大便"
-        except Exception as e:
-            reply = f"⚠️ 排行榜查詢失敗：{str(e)}"
-
-    elif msg in ["週排行", "周排行"]:
-        try:
-            records = sheet.get_all_records()
-            counter = Counter()
-            start_of_week = now_dt - timedelta(days=now_dt.weekday())
-            for r in records:
-                if r['來源'] == source_type and r['來源ID'] == source_id:
-                    record_time = tz.localize(datetime.strptime(r['時間'], "%Y-%m-%d %H:%M:%S"))
-                    if start_of_week <= record_time <= now_dt:
-                        counter[r['使用者名稱']] += 1
-            top = counter.most_common(5)
-            reply = "📅 本週群組大便排行榜：\n" + "\n".join(f"{i+1}. {name} - {cnt} 次" for i, (name, cnt) in enumerate(top)) if top else "📉 本週還沒有群組大便紀錄"
-        except Exception as e:
-            reply = f"⚠️ 週排行查詢失敗：{str(e)}"
-
-    elif msg == "月排行":
-        try:
-            records = sheet.get_all_records()
-            counter = Counter()
-            for r in records:
-                if r['來源'] == source_type and r['來源ID'] == source_id:
-                    record_time = tz.localize(datetime.strptime(r['時間'], "%Y-%m-%d %H:%M:%S"))
-                    if record_time.year == now_dt.year and record_time.month == now_dt.month:
-                        counter[r['使用者名稱']] += 1
-            top = counter.most_common(5)
-            reply = "🗓️ 本月群組大便排行榜：\n" + "\n".join(f"{i+1}. {name} - {cnt} 次" for i, (name, cnt) in enumerate(top)) if top else "📉 本月還沒有群組大便紀錄"
-        except Exception as e:
-            reply = f"⚠️ 月排行查詢失敗：{str(e)}"
+    elif msg == "便便抽卡":
+        cards = [
+            ("N", "平凡的一泡，默默無名。"),
+            ("R", "中規中矩，但排得很順。"),
+            ("SR", "閃閃發光，形狀完美，值得紀念。"),
+            ("SSR", "傳說中的黃金便，據說能治百病！"),
+            ("UR", "彩虹皇冠便，宇宙唯一，屎界傳說！")
+        ]
+        weights = [0.5, 0.25, 0.15, 0.08, 0.02]
+        rarity, description = random.choices(cards, weights)[0]
+        emoji = {"N": "💩", "R": "🟤", "SR": "✨", "SSR": "🌟", "UR": "👑"}[rarity]
+        image_urls = {
+            "N": "https://raw.githubusercontent.com/kailaw22/poop-tracker-bot/main/images/poop_n.png",
+            "R": "https://raw.githubusercontent.com/kailaw22/poop-tracker-bot/main/images/poop_r.png",
+            "SR": "https://raw.githubusercontent.com/kailaw22/poop-tracker-bot/main/images/poop_sr.png",
+            "SSR": "https://raw.githubusercontent.com/kailaw22/poop-tracker-bot/main/images/poop_ssr.png",
+            "UR": "https://raw.githubusercontent.com/kailaw22/poop-tracker-bot/main/images/poop_ur.png"
+        }
+        reply_text = f"{emoji} 抽到 {rarity} 級便便卡！\n{description}"
+        image_url = image_urls[rarity]
+        line_bot_api.reply_message(
+            event.reply_token,
+            [TextSendMessage(text=reply_text), ImageSendMessage(original_content_url=image_url, preview_image_url=image_url)]
+        )
+        return
 
     elif msg == "兜不住屎":
         reply = f"{user_name} 愛吃大便 💩"
@@ -190,7 +157,8 @@ def handle_message(event):
             "💩 大便 / 💩 → 記錄大便\n"
             "📊 查詢 → 今天大幾次\n"
             "📅 查詢本週 → 本週大幾次\n"
-            "🗓️ 查詢本月 → 本月大幾次\n\n"
+            "🗓️ 查詢本月 → 本月大幾次\n"
+            "🃏 便便抽卡 → 隨機抽卡，SSR 有彩虹便！\n\n"
             "【群組功能】\n"
             "🏆 排行榜 → 今日群組排行\n"
             "📅 週排行 → 本週群組排行\n"
